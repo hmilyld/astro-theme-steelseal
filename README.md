@@ -278,6 +278,20 @@ Write images as raw HTML with dimensions and lazy loading. Markdown's `![]()` ca
 
 Static pages live in `src/content/pages/`; the filename is the path (`about.md` → `/about`).
 
+### 4. The theme credit
+
+The footer carries one English line crediting the theme:
+
+```html
+<span class="d"
+  >Theme:{' '}<a href="https://github.com/hmilyld/astro-theme-steelseal" rel="noopener"
+    >steelseal</a
+  ></span
+>
+```
+
+It sits in the `.colophon` block of `src/layouts/BaseLayout.astro`, after the `Astro · RSS` line. It is not part of the i18n dictionary, so it stays English in both languages. Keep it or delete the whole `<span>` — MIT does not require attribution, but a link back is appreciated.
+
 ## Keyboard
 
 | Key   | Action                                                  |
