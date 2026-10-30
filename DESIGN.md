@@ -1,150 +1,153 @@
-# steelseal 设计系统
+# steelseal design system
 
-钢板底、铁黑字、朱红印。一套用于长文阅读的界面语言。
+**English** · [简体中文](DESIGN.zh-CN.md)
 
-这份文档记录**为什么**每个数字是它现在的样子。改之前先读一遍——里面大部分结论都是踩过坑之后才定下来的。
+Steel-grey ground, iron-black type, vermilion seal. An interface language for long-form reading.
+
+This document records **why** every number is what it is. Read it before changing anything — most of these conclusions were reached after something broke.
 
 ---
 
-## 一、三条原则
+## 1. Three principles
 
-1. **只有三色。** 钢板灰做底（`--color-ground`），铁黑做字（`--color-ink`），朱红只做印（`--color-seal` / `--color-accent`）。朱红在一屏里出现不超过两次：印章，和「你现在在这里」。
-2. **结构靠线，不靠盒子。** 分区用 1px 或 2px 的墨线，不用卡片、阴影、圆角容器。整套界面只有一种圆角（3px），只出现在按钮、代码块、图片上。
-3. **一个宽度。** 正文、代码、表格、图片共用一个宽度，没有任何东西「突破」出去。一篇文章只有一条右边缘。
+1. **Only three colours.** Steel grey for the ground (`--color-ground`), iron black for type (`--color-ink`), vermilion only for the seal (`--color-seal` / `--color-accent`). Vermilion appears no more than twice per screen: the seal, and "you are here".
+2. **Structure with rules, not boxes.** Sections are separated by 1px or 2px ink rules, never cards, shadows or rounded containers. The interface has exactly one radius (3px), used only on buttons, code blocks and images.
+3. **One width.** Body copy, code, tables and images share one width. Nothing "breaks out". An article has exactly one right edge.
 
-## 二、颜色
+## 2. Colour
 
-| token                 | 浅色      | 暗色      | 用途                              |
-| --------------------- | --------- | --------- | --------------------------------- |
-| `--color-ground`      | `#eeede9` | `#1a1c1e` | 页面底色                          |
-| `--color-ink`         | `#26282b` | `#e7e8e5` | 正文与标题                        |
-| `--color-soft`        | `#55595d` | `#9aa0a4` | 次要文字（6.0:1 / 6.5:1）         |
-| `--color-faint`       | `#676b6f` | `#8a9095` | 元信息（4.6:1 / 5.3:1）           |
-| `--color-rule`        | `#d4d6d2` | `#303336` | 结构线                            |
-| `--color-rule-strong` | `#b9bcb6` | `#41454a` | 控件边框、更强的分隔              |
-| `--color-seal`        | `#b23a2e` | `#c0473a` | 印章块（只承载 40px 的字形）      |
-| `--color-accent`      | `#b23a2e` | `#e07a6a` | 承载文字时的朱红（5.1:1 / 5.8:1） |
+| Token                 | Light     | Dark      | Role                                           |
+| --------------------- | --------- | --------- | ---------------------------------------------- |
+| `--color-ground`      | `#eeede9` | `#1a1c1e` | Page background                                |
+| `--color-ink`         | `#26282b` | `#e7e8e5` | Body text and headings                         |
+| `--color-soft`        | `#55595d` | `#9aa0a4` | Secondary text (6.0:1 / 6.5:1)                 |
+| `--color-faint`       | `#676b6f` | `#8a9095` | Metadata (4.6:1 / 5.3:1)                       |
+| `--color-rule`        | `#d4d6d2` | `#303336` | Structural rules                               |
+| `--color-rule-strong` | `#b9bcb6` | `#41454a` | Control borders, stronger dividers             |
+| `--color-seal`        | `#b23a2e` | `#c0473a` | Seal block (carries only the 40px glyph)       |
+| `--color-accent`      | `#b23a2e` | `#e07a6a` | Vermilion when it carries text (5.1:1 / 5.8:1) |
 
-暗色下朱红要分两个：`--color-seal` 是印章块上的大字，可以暗一点；`--color-accent` 是正文里的链接，必须够亮。混用会导致其中一处对比度不达标。
+In dark mode vermilion splits into two tokens: the large glyph on the seal block can be darker, while links in body copy must stay bright. Mixing them makes one of the two fail contrast.
 
-**所有颜色都必须是 token。** 唯一的例外是 shiki 写进 HTML 的内联色，用 `[style*='#6A737D']` 单独覆盖注释色（3.1:1 → 5.7:1）。
+**Component colours always come from tokens.** The only exceptions are Shiki's inline comment colour (overridden via `[style*='#6A737D']`, 3.1:1 → 5.7:1), the dark overlay behind the mobile drawer, and the fixed light palette used for print.
 
-## 三、排版
+## 3. Typography
 
-### 字号
+### Type scale
 
-十二档，没有第十三档：
+Twelve steps, no thirteenth:
 
-| 值               | 用途                         |
-| ---------------- | ---------------------------- |
-| 2rem / 32px      | 文章标题                     |
-| 1.5rem / 24px    | 页面标题、小节标题           |
-| 1.4rem / 22.4px  | 正文 h2、相关文章标题        |
-| 1.2rem / 19.2px  | 年份标题                     |
-| 1.12rem / 17.9px | 正文 h3                      |
-| 1.05rem / 16.8px | 行标题（文章列表里的标题）   |
-| 1rem / 16px      | 正文                         |
-| 0.9rem / 14.4px  | 摘要、提示                   |
-| 0.85rem / 13.6px | 页脚、代码块、表格           |
-| 0.8rem / 12.8px  | 元信息（日期、时长）         |
-| 0.75rem / 12px   | 微型标签（`.en` 副标、计数） |
+| Value            | Use                             |
+| ---------------- | ------------------------------- |
+| 2.5rem / 40px    | Seal glyph                      |
+| 2rem / 32px      | Article title                   |
+| 1.5rem / 24px    | Page title, section heading     |
+| 1.4rem / 22.4px  | Body h2, related-post titles    |
+| 1.2rem / 19.2px  | Year heading                    |
+| 1.12rem / 17.9px | Body h3                         |
+| 1.05rem / 16.8px | Row title (post title in lists) |
+| 1rem / 16px      | Body copy                       |
+| 0.9rem / 14.4px  | Excerpts, notes                 |
+| 0.85rem / 13.6px | Footer, code blocks, tables     |
+| 0.8rem / 12.8px  | Metadata (date, reading time)   |
+| 0.75rem / 12px   | Micro labels (`.en`, counts)    |
 
-**12px 是地板。** 任何有信息量的文字都不低于它。
+**12px is the floor.** No text that carries information goes below it.
 
-### 行宽
+### Measure
 
-`.pane-inner` 是 48rem = 768px，16px 下**每行 48 个汉字**。
+`.pane-inner` is 48rem = 768px, which is **48 CJK characters per line** at 16px.
 
-这个数字是反复改出来的：最初 59（铺满 888px，读着累），后来 36（正文收窄、代码通栏，结果纯文字文章右边空出一条 300px 的带子），最后定在 48——把**内容区本身**收窄，让所有元素共用同一个宽度。
+The number was revised repeatedly: first 59 (filling 888px; tiring to read), then 36 (narrow body copy while code stayed full width, leaving an empty 300px band on text-only articles), finally 48 — narrowing the **content area itself** so every element shares one width.
 
-中文排版的舒适区是 30–40 字，48 偏宽，但配合 1.75 行高和足够的段间距可以接受。想要更窄，改两个数即可：`--shell-max` 和 `.pane-inner` 一起减，否则会出现第二条右边缘。
+Chinese typography is comfortable at 30–40 characters; 48 is wider, but with 1.75 line-height and enough paragraph spacing it holds up. To go narrower, change two numbers together: `--shell-max` and `.pane-inner`. Otherwise a second right edge appears.
 
-### 字距
+### Tracking
 
-六个值，按角色分配：
+Six values, assigned by role:
 
-| 值     | 用在哪                       |
-| ------ | ---------------------------- |
-| 0.01em | 内容标题（文章标题、行标题） |
-| 0.04em | 元信息（日期、计数）         |
-| 0.06em | 界面标题（小节头、年份）     |
-| 0.08em | 标签、按钮文字               |
-| 0.16em | 微型大写（`.en` 副标）       |
-| 0.26em | 拉丁字标（`HMILYLD` 那种）   |
+| Value  | Used on                                     |
+| ------ | ------------------------------------------- |
+| 0.01em | Content headings (article title, row title) |
+| 0.04em | Metadata (dates, counts)                    |
+| 0.06em | Interface headings (section heads, years)   |
+| 0.08em | Tags, button labels                         |
+| 0.16em | Micro uppercase (`.en` sublabels)           |
+| 0.26em | Latin wordmark (`STEELSEAL`)                |
 
-## 四、布局
+## 4. Layout
 
-```
+```text
 ┌──────────────┬────────────────────────────┐
 │ rail 320px   │ pane                       │
 │              │  ┌──────────────────────┐  │
-│  印章 + 站名  │  │ pane-inner 768px     │  │
-│  年份索引 /   │  │                      │  │
-│  文章目录     │  │  正文 / 代码 / 表格    │  │
-│  页面导航     │  │  全部同宽             │  │
-│  主题 / 语言  │  └──────────────────────┘  │
+│  seal + name │  │ pane-inner 768px     │  │
+│  year index /│  │                      │  │
+│  article TOC │  │  prose / code / table│  │
+│  page nav    │  │  all the same width  │  │
+│  theme/lang  │  └──────────────────────┘  │
 └──────────────┴────────────────────────────┘
 ```
 
-- `--shell-max: 75rem`（1200px）= 320 + 56 + 768 + 56，正文正好填满内容区
-- `.pane` 是 `100dvh` 弹性列，短页时页脚被顶到底，它的分隔线与左栏底部的分隔线对齐（这个对齐是手调的，改左栏内容高度要重新配平 `padding-bottom`）
-- 断点：1199 / 1072 / 1024 / 860。1072 是栏宽收窄点——必须早于 gutter 断点，否则会出现「视口越宽、正文越窄」
-- 860 以下左栏变成抽屉：关闭态 `visibility: hidden`，链接彻底离开 Tab 序列
+- `--shell-max: 75rem` (1200px) = 320 + 56 + 768 + 56; body copy fills the content area exactly.
+- `.pane` is a `100dvh` flex column. On short pages the footer is pushed to the bottom of the viewport, and its divider aligns with the rail's bottom divider. That alignment is hand-tuned: changing the rail's content height means rebalancing `padding-bottom`.
+- Breakpoints: 1199 / 1072 / 1024 / 860. 1072 is where the rail narrows; it must come before the gutter breakpoint, otherwise "the wider the viewport, the narrower the text".
+- Below 860 the rail becomes a drawer. Its closed state is `visibility: hidden`, so its links leave the tab order completely.
 
-## 五、组件
+## 5. Components
 
-### 按钮 `.btn`
+### Buttons `.btn`
 
-一个基类，三个修饰。高度 32px，圆角 3px，边框 1px `--color-rule-strong`，悬停转墨色，按下加 7% 墨色底。
+One base class, one modifier. 32px height, 3px radius, 1px `--color-rule-strong` border; hover turns ink, active adds a 7% ink wash.
 
-`.code-copy` 和 `.search-clear` 是刻意的例外：一个住在暗色代码块里，一个住在输入框内，是不同的表面。
+`.code-copy` and `.search-clear` are deliberate exceptions: one lives inside a dark code block, the other inside an input field — different surfaces.
 
-### 标签 `.tag`
+### Tags `.tag`
 
-同一概念三种呈现，共用一套颜色与悬停：
+One concept, three presentations, sharing colour and hover:
 
-- `.tag--chip`：标签云（`/tags`），带边框的小块
-- `.tag`：文章元信息，下划线链接
-- `.tag--static`：行内标签，纯文本不参与交互
+- `.tag--chip`: tag cloud (`/tags`), small bordered blocks
+- `.tag`: article metadata, underlined link
+- `.tag--static`: inline label, plain text, not interactive
 
-### 行 `.row`
+### Rows `.row`
 
-`grid-template-columns: 1fr 10rem`，右侧是元信息槽（日期、阅读时长、标签）。首行去掉自己的上边框，让它挂在年份标题下面。
+`grid-template-columns: 1fr 10rem`; the right column is the metadata gutter (date, reading time, tags). The first row drops its own top border so it hangs under the year heading.
 
-### 小节头 `.sect-head`
+### Section head `.sect-head`
 
-2px 墨色下划线 + 1.5rem 标题 + 0.75rem 大写副标 + 可选的右侧链接。这是全站唯一使用 2px 的地方，所以「粗线 = 页面级分区」这件事在视觉上是成立的。
+2px ink underline + 1.5rem title + 0.75rem uppercase sublabel + optional right link. Page-level divisions use 2px, rows use 1px; weight itself carries the hierarchy.
 
-## 六、状态
+## 6. States
 
-每个可交互元素都要有：
+Every interactive element needs:
 
-- **hover**：颜色朝墨色或朱红移动，150ms
-- **focus-visible**：2px 朱红描边，3px 偏移（唯一一处允许不跟随元素圆角）
-- **active**：加一层 7% 墨色底（按钮）
-- **disabled**：45% 透明度 + `not-allowed`
+- **hover**: colour moves toward ink or vermilion, 150ms
+- **focus-visible**: 2px vermilion outline, 3px offset (the only place allowed not to follow the element's radius)
+- **active**: 7% ink wash (buttons)
+- **disabled**: 45% opacity + `not-allowed`
 
-搜索框的焦点指示不在输入框上，而在整条下边线：1px 边框 + 1px 投影叠成 2px 朱红。给输入框画描边环会在这个形状上显得很突兀。
+The search field's focus indicator is not on the input but on the whole bottom rule: 1px border + 1px shadow stack into 2px vermilion. A ring around the input looks wrong in this shape.
 
-## 七、动效
+## 7. Motion
 
-只有两个时长：`--dur` 150ms（所有悬停与按下）、`--dur-slow` 200ms（主题切换、抽屉）。缓动统一 `ease`。
+Only two durations: `--dur` 150ms (all hover and press), `--dur-slow` 200ms (theme switch, drawer). Easing is always `ease`.
 
-`prefers-reduced-motion` 下关闭全部 transition 与 animation，并把 `scroll-behavior` 改为 `auto`；JS 里的平滑滚动也单独判断了同一个媒体查询。
+Under `prefers-reduced-motion`, all transitions and animations are disabled and `scroll-behavior` becomes `auto`; smooth scrolling in JS checks the same media query separately.
 
-## 八、无障碍
+## 8. Accessibility
 
-- 对比度：正文与次要文字全部 ≥4.5:1，明暗双主题都实测过
-- 每页恰好一个暴露的一级标题（移动端由移动栏的 `role="heading"` 承担）
-- 标题层级不跳级：首页 `h1 → h2 写作 → h3 年份 → h4 文章`
-- 跳转链接是第一个 Tab 停留点
-- 抽屉打开时 `main` 变 `inert`，焦点进入栏内，Esc 关闭并归还焦点
-- 触摸目标 ≥24×24（WCAG 2.5.8），行内文字链接按规范豁免
+- Contrast: body and secondary text all ≥4.5:1, measured in both themes
+- Exactly one exposed `h1` per page (on mobile, the mobile bar's `role="heading"` carries it)
+- No skipped heading levels: home is `h1 → h2 Writing → h3 year → h4 post`
+- The skip link is the first tab stop
+- When the drawer is open, `main` becomes `inert`; focus moves into the rail; Esc closes it and returns focus
+- Touch targets ≥24×24 (WCAG 2.5.8); inline text links are exempt per spec
 
-## 九、不要做的事
+## 9. Things not to do
 
-- 不要再加圆角值。2px 和 4px 都试过，和 3px 放在一起只是噪声
-- 不要再加字号。0.66 / 0.68 / 0.72 / 0.86 / 0.95 / 0.98 这些曾经存在过，视觉上分不出来，只会让「层级」变成「噪声」
-- 不要在 `.prose` 里再套一层 `max-width`。那会让正文比代码块窄，右边留出一条空白
-- 不要用 `em` 做行宽。`em` 按元素自身字号解析，h2 的 36em 会变成 806px
-- 不要让任何元素突破 `.pane-inner` 的宽度。第二条右边缘是这套设计最容易崩的地方
+- Don't add another radius. 2px and 4px were both tried; next to 3px they are just noise.
+- Don't add another type size. 0.66 / 0.68 / 0.72 / 0.86 / 0.95 / 0.98 once existed; they were indistinguishable and turned hierarchy into noise.
+- Don't nest another `max-width` inside `.prose`. It makes body copy narrower than code blocks and leaves an empty band on the right.
+- Don't use `em` for measure. `em` resolves against the element's own font size; 36em on an h2 becomes 806px.
+- Don't let anything break out of `.pane-inner`. A second right edge is the easiest way to break this design.

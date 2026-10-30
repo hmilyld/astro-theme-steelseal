@@ -6,7 +6,7 @@ description: 一些值得一看的地方
 ## 这个主题
 
 - 仓库：[github.com/yourname/astro-theme-steelseal](https://github.com/yourname/astro-theme-steelseal)
-- 文档：见仓库根目录的 README.md 与 DESIGN.md
+- 文档：仓库根目录的 README.md / README.zh-CN.md，设计系统见 DESIGN.md / DESIGN.zh-CN.md
 
 ## 参考
 

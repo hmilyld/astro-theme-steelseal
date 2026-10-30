@@ -3,8 +3,10 @@
   "version": "0.1.0",
   "type": "module",
   "private": true,
-  "description": "钢板底、铁黑字、朱红印 — a quiet reading theme for Astro",
+  "description": "Steel-grey ground, iron-black type, vermilion seal — a quiet reading theme for Astro",
   "license": "MIT",
+  "author": "hmilyld.com",
+  "homepage": "https://hmilyld.com",
   "engines": {
     "node": ">=22.12.0"
   },

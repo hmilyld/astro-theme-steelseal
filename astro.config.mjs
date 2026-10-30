@@ -29,7 +29,8 @@ function excludedFromSitemap(page) {
 }
 
 export default defineConfig({
-  // 上线前改成你自己的域名：canonical、og:url、RSS 与 sitemap 都从这里取
+  // 上线前改成你自己的域名：canonical、og:url、RSS 与 sitemap 都从这里取。
+  // 线上示例：https://hmilyld.com
   site: 'https://example.com',
 
   vite: {
