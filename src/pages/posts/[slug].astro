@@ -1,0 +1,134 @@
+---
+import { render, getCollection } from 'astro:content';
+import type { GetStaticPaths, InferGetStaticPropsType } from 'astro';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import PostRows from '../../components/PostRows.astro';
+import { SITE } from '../../config';
+import { getPostSlug, formatDate, readingMinutes, getVisibleSortedPosts } from '../../utils/posts';
+
+export const getStaticPaths = (async () => {
+  const posts = await getCollection('posts');
+  return posts.map((post) => ({
+    params: { slug: getPostSlug(post) },
+    props: { post },
+  }));
+}) satisfies GetStaticPaths;
+
+type Props = InferGetStaticPropsType<typeof getStaticPaths>;
+
+const { post }: Props = Astro.props;
+const { Content, headings } = await render(post);
+const slug = getPostSlug(post);
+const postUrl = new URL(`/posts/${slug}`, Astro.url.origin).href;
+const pubDate = formatDate(post.data.date);
+const minutes = readingMinutes(post.body ?? '');
+
+const sorted = await getVisibleSortedPosts();
+const idx = sorted.findIndex((p) => getPostSlug(p) === slug);
+// 列表按时间倒序：idx+1 更早（上一篇），idx-1 更晚（下一篇）
+// 隐藏文章不在 sorted 里，idx 会是 -1，此时不给上下篇，免得链到最新的文章上
+const prev = idx >= 0 && idx < sorted.length - 1 ? sorted[idx + 1] : null;
+const next = idx > 0 ? sorted[idx - 1] : null;
+
+// 同标签的最近三篇：文章末尾不再只剩上下篇
+const related = sorted
+  .filter((p) => getPostSlug(p) !== slug && p.data.tags.some((t) => post.data.tags.includes(t)))
+  .slice(0, 3);
+
+const { origin } = Astro.url;
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'BlogPosting',
+  '@id': `${postUrl}#article`,
+  headline: post.data.title,
+  description: post.data.excerpt || '',
+  datePublished: pubDate,
+  dateModified: pubDate,
+  inLanguage: 'zh-CN',
+  url: postUrl,
+  mainEntityOfPage: postUrl,
+  image: `${origin}/og-image.png`,
+  author: {
+    '@type': 'Person',
+    '@id': `${origin}/#person`,
+    name: SITE.author,
+    alternateName: [SITE.latin],
+  },
+  publisher: { '@id': `${origin}/#person` },
+  ...(post.data.tags.length > 0 && { keywords: post.data.tags.join(',') }),
+};
+---
+
+<BaseLayout
+  title={post.data.title}
+  description={post.data.excerpt}
+  type="article"
+  published={pubDate}
+  tags={post.data.tags}
+  toc={headings}
+  noindex={post.data.hidden}
+>
+  <script is:inline type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+
+  <article>
+    <h1 class="article-title">{post.data.title}</h1>
+
+    <div class="article-meta">
+      <time datetime={pubDate}>{pubDate}</time>
+      <span data-i18n-template="post.minutes" data-i18n-args={JSON.stringify([String(minutes)])}>
+        {minutes} 分钟
+      </span>
+      {
+        post.data.tags.map((t: string) => (
+          <a class="tag" href={`/tags/${t}`}>
+            {t}
+          </a>
+        ))
+      }
+    </div>
+
+    <div class="prose">
+      <Content />
+    </div>
+  </article>
+
+  <nav class="postnav" aria-label="上下篇" data-i18n-aria="aria.postnav">
+    {
+      prev ? (
+        <a class="prev" href={`/posts/${getPostSlug(prev)}`}>
+          <span class="n" data-i18n="post.prev">
+            ← 上一篇
+          </span>
+          <span class="t">{prev.data.title}</span>
+        </a>
+      ) : (
+        <span />
+      )
+    }
+    {
+      next ? (
+        <a class="next" href={`/posts/${getPostSlug(next)}`}>
+          <span class="n" data-i18n="post.next">
+            下一篇 →
+          </span>
+          <span class="t">{next.data.title}</span>
+        </a>
+      ) : (
+        <span />
+      )
+    }
+  </nav>
+
+  {
+    related.length > 0 && (
+      <section class="related">
+        <div class="sect-head">
+          <h2 data-i18n="related.title">相关文章</h2>
+          <span class="en">Related</span>
+        </div>
+        <PostRows posts={related} date="full" level={3} />
+      </section>
+    )
+  }
+</BaseLayout>

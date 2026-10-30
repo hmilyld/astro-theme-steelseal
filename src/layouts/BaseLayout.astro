@@ -1,0 +1,580 @@
+---
+import '@fontsource-variable/overpass/wght.css';
+import '@fontsource-variable/noto-sans-sc/wght.css';
+import '@fontsource-variable/jetbrains-mono/wght.css';
+import '../styles/global.css';
+
+// 汉字子集按页面用字才决定，静态 preload 不了；先把两个 Latin 面拉起来
+import overpassLatinUrl from '@fontsource-variable/overpass/files/overpass-latin-wght-normal.woff2?url';
+import notoLatinUrl from '@fontsource-variable/noto-sans-sc/files/noto-sans-sc-latin-wght-normal.woff2?url';
+
+import SiteRail from '../components/SiteRail.astro';
+import { SITE } from '../config';
+import { getAllTagCounts, getPostsByYear } from '../utils/posts';
+
+interface Props {
+  title: string;
+  description?: string;
+  image?: string;
+  type?: string;
+  published?: string;
+  updated?: string;
+  tags?: string[];
+  noindex?: boolean;
+  /** 文章页把目录交给左栏渲染 */
+  toc?: Array<{ depth: number; slug: string; text: string }>;
+}
+
+const { title, description, image, type, published, updated, tags, noindex, toc } = Astro.props;
+
+const pathname = Astro.url.pathname;
+const canonical = new URL(pathname, Astro.url.origin).href;
+// 首页传进来的就是站点名，不要再拼一遍
+const pageTitle = title === SITE.title ? title : `${title} - ${SITE.title}`;
+const pageDescription = description || SITE.description;
+const pageImage = image || `${Astro.url.origin}/og-image.png`;
+const pageType = type || 'website';
+
+// 文章页传 toc（可能为空数组），其余页面是 undefined：左栏因此知道该放目录还是年份索引
+const isPost = Array.isArray(toc);
+const years = isPost ? [] : await getPostsByYear();
+const allTags = isPost ? [] : await getAllTagCounts();
+
+const graph = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'Person',
+      '@id': `${Astro.url.origin}/#person`,
+      name: SITE.author,
+      alternateName: [SITE.latin],
+      url: `${Astro.url.origin}/`,
+      sameAs: SITE.socials,
+    },
+    {
+      '@type': 'WebSite',
+      '@id': `${Astro.url.origin}/#website`,
+      url: `${Astro.url.origin}/`,
+      name: SITE.title,
+      description: SITE.description,
+      inLanguage: 'zh-CN',
+      publisher: { '@id': `${Astro.url.origin}/#person` },
+    },
+  ],
+};
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{pageTitle}</title>
+    <meta name="description" content={pageDescription} />
+    <meta name="generator" content={Astro.generator} />
+    <link rel="icon" type="image/svg+xml" href={SITE.favicon} />
+    <link rel="apple-touch-icon" href="/favicon.svg" />
+    <meta name="theme-color" content="#eeede9" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content={SITE.title} />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <link rel="preload" as="font" type="font/woff2" href={overpassLatinUrl} crossorigin />
+    <link rel="preload" as="font" type="font/woff2" href={notoLatinUrl} crossorigin />
+    <link rel="canonical" href={canonical} />
+    <link
+      rel="alternate"
+      type="application/rss+xml"
+      title={`${SITE.title} · ${SITE.latin}`}
+      href="/rss.xml"
+    />
+    {noindex && <meta name="robots" content="noindex, follow" />}
+
+    <!-- Open Graph -->
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={pageDescription} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:type" content={pageType} />
+    <meta property="og:site_name" content={SITE.title} />
+    <meta property="og:locale" content="zh_CN" />
+    <meta property="og:image" content={pageImage} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content={pageTitle} />
+    {/* 文章属性属于 article 命名空间，不是 og:article */}
+    {published && <meta property="article:published_time" content={published} />}
+    {updated && <meta property="article:modified_time" content={updated} />}
+    {tags?.map((t) => <meta property="article:tag" content={t} />)}
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={pageTitle} />
+    <meta name="twitter:description" content={pageDescription} />
+    <meta name="twitter:image" content={pageImage} />
+    <meta name="twitter:image:alt" content={pageTitle} />
+
+    <script is:inline type="application/ld+json" set:html={JSON.stringify(graph)} />
+
+    {/* 绘制前定好明暗：有记录用记录，没有就跟随系统。 */}
+    <script is:inline>
+      (() => {
+        try {
+          const stored = localStorage.getItem('theme');
+          const dark =
+            stored === 'dark' ||
+            (stored !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          document.documentElement.classList.toggle('dark', dark);
+          // 浏览器 UI 的颜色跟着一起定，避免暗色下先闪一段浅色
+          const meta = document.querySelector('meta[name="theme-color"]');
+          const ground = getComputedStyle(document.documentElement)
+            .getPropertyValue('--color-ground')
+            .trim();
+          if (meta) meta.setAttribute('content', ground || (dark ? '#1a1c1e' : '#eeede9'));
+        } catch {}
+      })();
+    </script>
+  </head>
+
+  <body>
+    {
+      isPost && (
+        <div class="progress" aria-hidden="true">
+          <i />
+        </div>
+      )
+    }
+
+    <a class="skip" href="#main" data-i18n="header.skip">跳到主内容</a>
+
+    <div class="shell">
+      <SiteRail years={years} tags={allTags} toc={toc} pathname={pathname} />
+
+      <main class="pane" id="main" tabindex="-1">
+        <div class="pane-inner">
+          <div class="pane-body">
+            <slot />
+          </div>
+
+          <footer class="colophon">
+            <span>{SITE.title}</span>
+            <span class="d">Astro · <a href="/rss.xml">RSS</a></span>
+            <span class="d">&copy; {new Date().getFullYear()} {SITE.author}</span>
+          </footer>
+        </div>
+      </main>
+    </div>
+
+    <button
+      class="to-top btn btn--icon"
+      id="backToTop"
+      aria-label="返回顶部"
+      title="返回顶部"
+      data-i18n-aria="backToTop"
+      data-i18n-title="backToTop"
+    >
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <line x1="12" y1="19" x2="12" y2="5"></line>
+        <polyline points="5 12 12 5 19 12"></polyline>
+      </svg>
+    </button>
+
+    <script>
+      // ── 主题：自动 / 浅色 / 深色 ─────────────────────
+      (function () {
+        const root = document.documentElement;
+        const themeColor = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+        const choices = document.querySelectorAll<HTMLButtonElement>('.seg [data-theme-value]');
+        const system = window.matchMedia('(prefers-color-scheme: dark)');
+
+        function storedMode(): 'system' | 'light' | 'dark' {
+          try {
+            const value = localStorage.getItem('theme');
+            return value === 'light' || value === 'dark' ? value : 'system';
+          } catch {
+            return 'system';
+          }
+        }
+
+        function applyTheme() {
+          const mode = storedMode();
+          const dark = mode === 'dark' || (mode === 'system' && system.matches);
+
+          root.classList.toggle('dark', dark);
+          choices.forEach((choice) => {
+            choice.setAttribute('aria-pressed', String(choice.dataset.themeValue === mode));
+          });
+          const ground = getComputedStyle(root).getPropertyValue('--color-ground').trim();
+          themeColor?.setAttribute('content', ground || (dark ? '#1a1c1e' : '#eeede9'));
+        }
+
+        choices.forEach((choice) => {
+          choice.addEventListener('click', () => {
+            try {
+              localStorage.setItem('theme', choice.dataset.themeValue ?? 'system');
+            } catch {}
+            applyTheme();
+          });
+        });
+
+        // 停在“自动”时，跟随系统在访问期间的变化
+        system.addEventListener('change', () => {
+          if (storedMode() === 'system') applyTheme();
+        });
+
+        applyTheme();
+      })();
+
+      // ── 返回顶部 ─────────────────────────────────────
+      (function () {
+        const btn = document.getElementById('backToTop');
+        if (!btn) return;
+        let ticking = false;
+        window.addEventListener(
+          'scroll',
+          () => {
+            if (ticking) return;
+            ticking = true;
+            requestAnimationFrame(() => {
+              btn.classList.toggle('visible', window.scrollY > 400);
+              ticking = false;
+            });
+          },
+          { passive: true },
+        );
+        const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+        btn.addEventListener('click', () => {
+          // CSS 的 scroll-behavior 管不到显式传参的 smooth
+          window.scrollTo({ top: 0, behavior: reduceMotion.matches ? 'auto' : 'smooth' });
+        });
+      })();
+
+      // ── i18n：中文 / EN ──────────────────────────────
+      (function () {
+        const DICT: Record<'zh' | 'en', Record<string, string>> = {
+          zh: {
+            'nav.search': '搜索',
+            'nav.tags': '标签',
+            'nav.links': '链接',
+            'nav.about': '关于',
+            'rail.tagline': '写代码，做工具，偶尔写点东西。',
+            'rail.menu': '目录',
+            'rail.close': '关闭',
+            'rail.years': '年份',
+            'rail.allTags': '全部标签 {0}',
+            'theme.system': '自动',
+            'theme.light': '浅色',
+            'theme.dark': '深色',
+            'header.skip': '跳到主内容',
+            backToTop: '返回顶部',
+            'aria.theme': '主题',
+            'aria.lang': '语言',
+            'aria.nav': '页面导航',
+            'aria.years': '按年份浏览',
+            'aria.toc': '目录',
+            'aria.postnav': '上下篇',
+            'home.writing': '写作',
+            'home.lead': '从 {0} 年写到现在，共 {1} 篇。',
+            'home.yearCount': '{0} 篇',
+            'tags.title': '标签',
+            'tags.lead': '共 {0} 个标签，{1} 篇文章。',
+            'tag.back': '← 全部标签',
+            'tag.total': '共 {0} 篇文章',
+            'post.prev': '← 上一篇',
+            'post.next': '下一篇 →',
+            'post.minutes': '{0} 分钟',
+            'toc.title': '目录',
+            'search.title': '搜索',
+            'search.desc': '搜索文章标题、标签和摘要',
+            'search.placeholder': '输入关键词搜索...',
+            'search.clear': '清除搜索',
+            'search.empty': '输入关键词开始搜索',
+            'search.resultCount': '找到 {0} 篇文章',
+            'search.noResult': '没有找到相关文章',
+            'search.loadError': '搜索索引加载失败',
+            'nav.home': '首页',
+            'home.filter': '筛选标题或标签…',
+            'home.filterLabel': '筛选文章',
+            'related.title': '相关文章',
+            'notFound.title': '页面不存在',
+            'notFound.lead': '这个地址下没有内容。可能是链接过期，或者文章换过位置。',
+            'notFound.note': '也可以从这些地方继续：',
+            'search.resultOne': '找到 {0} 篇文章',
+          },
+          en: {
+            'nav.search': 'Search',
+            'nav.tags': 'Tags',
+            'nav.links': 'Links',
+            'nav.about': 'About',
+            'rail.tagline': 'Code, tools, and the occasional note.',
+            'rail.menu': 'Menu',
+            'rail.close': 'Close',
+            'rail.years': 'Years',
+            'rail.allTags': 'All tags {0}',
+            'theme.system': 'Auto',
+            'theme.light': 'Light',
+            'theme.dark': 'Dark',
+            'header.skip': 'Skip to main content',
+            backToTop: 'Back to top',
+            'aria.theme': 'Theme',
+            'aria.lang': 'Language',
+            'aria.nav': 'Page navigation',
+            'aria.years': 'Browse by year',
+            'aria.toc': 'Contents',
+            'aria.postnav': 'Previous and next post',
+            'home.writing': 'Writing',
+            'home.lead': 'Writing since {0} · {1} posts.',
+            'home.yearCount': '{0} posts',
+            'tags.title': 'Tags',
+            'tags.lead': '{0} tags · {1} posts.',
+            'tag.back': '← All tags',
+            'tag.total': '{0} posts',
+            'post.prev': '← Previous',
+            'post.next': 'Next →',
+            'post.minutes': '{0} min',
+            'toc.title': 'Contents',
+            'search.title': 'Search',
+            'search.desc': 'Search posts by title, tags and excerpt',
+            'search.placeholder': 'Type a keyword to search…',
+            'search.clear': 'Clear search',
+            'search.empty': 'Type a keyword to search',
+            'search.resultCount': '{0} posts found',
+            'search.noResult': 'No posts found',
+            'search.loadError': 'Failed to load the search index',
+            'nav.home': 'Home',
+            'home.filter': 'Filter by title or tag…',
+            'home.filterLabel': 'Filter posts',
+            'related.title': 'Related',
+            'notFound.title': 'Page not found',
+            'notFound.lead':
+              'Nothing lives at this address. The link may be stale, or the post moved.',
+            'notFound.note': 'Or continue from here:',
+            'search.resultOne': '1 post found',
+          },
+        };
+
+        const langButtons = document.querySelectorAll<HTMLButtonElement>('.seg [data-lang-value]');
+
+        function getLang(): 'zh' | 'en' {
+          try {
+            const saved = localStorage.getItem('lang');
+            if (saved === 'zh' || saved === 'en') return saved;
+          } catch {}
+          // 正文是中文，默认就按中文进；英文是显式选择
+          return 'zh';
+        }
+
+        function t(lang: 'zh' | 'en', key: string, args?: string[]) {
+          let tmpl = (DICT[lang] && DICT[lang][key]) || key;
+          if (args) {
+            for (let i = 0; i < args.length; i++) {
+              tmpl = tmpl.replace('{' + i + '}', args[i]!);
+            }
+          }
+          return tmpl;
+        }
+
+        function applyLang(lang: 'zh' | 'en') {
+          // <html lang> 声明的是内容语言，正文永远是中文，不能跟着界面语言改
+          // （否则屏幕阅读器会用英文语音读中文）。界面外壳用 data-lang 驱动，
+          // 每个被翻译的元素再各自标注语言。
+          const tag = lang === 'zh' ? 'zh-CN' : 'en';
+          document.documentElement.dataset.lang = lang;
+
+          document.querySelectorAll<HTMLElement>('[data-i18n]').forEach((el) => {
+            const key = el.getAttribute('data-i18n');
+            if (key && DICT[lang][key]) el.textContent = DICT[lang][key]!;
+            el.setAttribute('lang', tag);
+          });
+
+          document.querySelectorAll<HTMLElement>('[data-i18n-template]').forEach((el) => {
+            const key = el.getAttribute('data-i18n-template');
+            const raw = el.getAttribute('data-i18n-args');
+            if (!key || !raw) return;
+            try {
+              el.textContent = t(lang, key, JSON.parse(raw));
+              el.setAttribute('lang', tag);
+            } catch {
+              /* 参数不是 JSON 就保持原样 */
+            }
+          });
+
+          document.querySelectorAll<HTMLElement>('[data-i18n-title]').forEach((el) => {
+            const key = el.getAttribute('data-i18n-title');
+            if (key && DICT[lang][key]) el.setAttribute('title', DICT[lang][key]!);
+          });
+
+          document.querySelectorAll<HTMLElement>('[data-i18n-aria]').forEach((el) => {
+            const key = el.getAttribute('data-i18n-aria');
+            if (key && DICT[lang][key]) el.setAttribute('aria-label', DICT[lang][key]!);
+          });
+
+          document.querySelectorAll<HTMLInputElement>('[data-i18n-placeholder]').forEach((el) => {
+            const key = el.getAttribute('data-i18n-placeholder');
+            if (key && DICT[lang][key]) el.setAttribute('placeholder', DICT[lang][key]!);
+          });
+
+          langButtons.forEach((button) => {
+            button.setAttribute('aria-pressed', String(button.dataset.langValue === lang));
+          });
+
+          try {
+            if (localStorage.getItem('lang') !== lang) localStorage.setItem('lang', lang);
+          } catch {}
+        }
+
+        langButtons.forEach((button) => {
+          button.addEventListener('click', () => {
+            applyLang(button.dataset.langValue === 'en' ? 'en' : 'zh');
+          });
+        });
+
+        applyLang(getLang());
+      })();
+
+      // ── 代码块：右上角的复制按钮 ──────────────────────
+      (function () {
+        const blocks = document.querySelectorAll<HTMLPreElement>('.prose pre');
+        if (blocks.length === 0) return;
+
+        const LABELS = {
+          zh: { copy: '复制', copied: '已复制', copyLabel: '复制代码' },
+          en: { copy: 'Copy', copied: 'Copied', copyLabel: 'Copy code' },
+        };
+
+        const buttons: HTMLButtonElement[] = [];
+
+        const current = () =>
+          document.documentElement.dataset.lang === 'en' ? LABELS.en : LABELS.zh;
+
+        /** 优先异步剪贴板，被拒或不可用时退回 execCommand */
+        async function copyText(text: string) {
+          try {
+            if (navigator.clipboard?.writeText) {
+              await navigator.clipboard.writeText(text);
+              return;
+            }
+          } catch {
+            /* 权限被拒 / 非安全上下文，往下走 */
+          }
+
+          const area = document.createElement('textarea');
+          area.value = text;
+          area.setAttribute('readonly', '');
+          area.style.position = 'fixed';
+          area.style.top = '-1000px';
+          document.body.appendChild(area);
+          area.select();
+          // 非安全上下文（例如用局域网 IP 在手机上看）里只有它能复制
+          const exec = (document as unknown as { execCommand: (command: string) => boolean })
+            .execCommand;
+          const ok = exec.call(document, 'copy');
+          document.body.removeChild(area);
+          if (!ok) throw new Error('copy unavailable');
+        }
+
+        function paint() {
+          const labels = current();
+          buttons.forEach((button) => {
+            const copied = button.dataset.state === 'copied';
+            button.textContent = copied ? labels.copied : labels.copy;
+            button.setAttribute('aria-label', copied ? labels.copied : labels.copyLabel);
+            button.classList.toggle('is-copied', copied);
+          });
+        }
+
+        blocks.forEach((pre) => {
+          // 包一层，让按钮贴住可视区右上角（pre 自己会横向滚动）
+          const wrapper = document.createElement('div');
+          wrapper.className = 'code-block';
+          pre.replaceWith(wrapper);
+          wrapper.appendChild(pre);
+
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'code-copy';
+          button.dataset.state = 'idle';
+          wrapper.appendChild(button);
+          buttons.push(button);
+
+          button.addEventListener('click', () => {
+            const code = pre.querySelector('code') ?? pre;
+            const text = code.textContent ?? '';
+
+            const done = () => {
+              button.dataset.state = 'copied';
+              paint();
+              window.setTimeout(() => {
+                button.dataset.state = 'idle';
+                paint();
+              }, 1600);
+            };
+
+            copyText(text).then(done, () => {});
+          });
+        });
+
+        // 切中英文时按钮文案跟着走
+        new MutationObserver(paint).observe(document.documentElement, {
+          attributes: true,
+          attributeFilter: ['data-lang'],
+        });
+
+        paint();
+      })();
+    </script>
+
+    <script>
+      // ── 阅读进度 ─────────────────────────────────────
+      (function () {
+        const fill = document.querySelector<HTMLElement>('.progress i');
+        if (!fill) return;
+        let ticking = false;
+
+        const update = () => {
+          ticking = false;
+          const max = document.documentElement.scrollHeight - window.innerHeight;
+          const p = max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0;
+          fill.style.setProperty('--p', String(Math.round(p * 1000) / 1000));
+        };
+
+        window.addEventListener(
+          'scroll',
+          () => {
+            if (ticking) return;
+            ticking = true;
+            requestAnimationFrame(update);
+          },
+          { passive: true },
+        );
+        window.addEventListener('resize', update);
+        update();
+      })();
+
+      // ── 搜索快捷键：按 / 直接开始搜 ──────────────────
+      (function () {
+        document.addEventListener('keydown', (event) => {
+          if (event.key !== '/' || event.metaKey || event.ctrlKey || event.altKey) return;
+
+          const el = document.activeElement as HTMLElement | null;
+          if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) {
+            return;
+          }
+
+          const target =
+            document.getElementById('archiveFilter') ?? document.getElementById('searchInput');
+          event.preventDefault();
+          if (target) target.focus();
+          else window.location.assign('/search');
+        });
+      })();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,53 @@
+---
+interface Props {
+  headings: Array<{ depth: number; slug: string; text: string }>;
+}
+
+const { headings } = Astro.props;
+const items = headings.filter((h) => h.depth === 2 || h.depth === 3);
+---
+
+{
+  items.length > 0 && (
+    <nav class="toc" id="toc" aria-label="目录" data-i18n-aria="aria.toc">
+      <span class="k" data-i18n="toc.title">
+        目录
+      </span>
+      <ul>
+        {items.map((h) => (
+          <li>
+            <a href={`#${h.slug}`} class:list={[{ 'depth-3': h.depth === 3 }]}>
+              {h.text}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  )
+}
+
+<script>
+  const links = [...document.querySelectorAll<HTMLAnchorElement>('#toc a')];
+  const targets = links
+    .map((link) => document.getElementById(link.getAttribute('href')?.slice(1) ?? ''))
+    .filter((el): el is HTMLElement => Boolean(el));
+
+  if (targets.length > 0) {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          links.forEach((link) => {
+            const active = link.getAttribute('href') === `#${entry.target.id}`;
+            link.classList.toggle('is-active', active);
+            if (active) link.setAttribute('aria-current', 'true');
+            else link.removeAttribute('aria-current');
+          });
+        }
+      },
+      { rootMargin: '-80px 0px -70% 0px' },
+    );
+
+    targets.forEach((t) => observer.observe(t));
+  }
+</script>

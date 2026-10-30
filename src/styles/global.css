@@ -1,0 +1,1519 @@
+@import 'tailwindcss';
+
+/* ═══════════════════════════════════════════════════════════════
+   steelseal — 钢板底、铁黑字、朱红印
+   一套用于长文阅读的 Astro 主题。所有 token 都在 :root / .dark 里，
+   改这里就能换掉整站的颜色、字体、宽度与节奏。
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+  /* 钢板 · 铁黑 · 朱红 */
+  --color-ground: #eeede9;
+  --color-ink: #26282b;
+  --color-soft: #55595d; /* 6.0:1 on ground */
+  --color-faint: #676b6f; /* 4.6:1 on ground */
+  --color-rule: #d4d6d2;
+  --color-rule-strong: #b9bcb6;
+  --color-seal: #b23a2e; /* the printed block */
+  --color-accent: #b23a2e; /* accent where it carries text (5.1:1) */
+
+  --font-lat: 'Overpass Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-han:
+    'Noto Sans SC Variable', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', system-ui,
+    sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* 几何与动效此前散在 1600 行里：3 种圆角、4 个时长、11 个字距。
+     这里各收成一个值，改一处就够。 */
+  --radius: 3px;
+  --dur: 150ms;
+  --dur-slow: 200ms;
+
+  /* 间距刻度：36 个 rem 值收成 15 个，其中 12 个就是这几档。
+     例外只有三个，都在用到的地方注明了：0.05（发丝间距）、
+     0.38（分段控件，被 24px 目标高度锁死）、3.5（--gutter）。 */
+  --space-1: 0.25rem; /*  4px */
+  --space-2: 0.5rem; /*  8px */
+  --space-3: 0.75rem; /* 12px */
+  --space-4: 1rem; /* 16px */
+  --space-5: 1.5rem; /* 24px */
+  --space-6: 2rem; /* 32px */
+  --space-7: 3rem; /* 48px */
+
+  --rail-w: 320px;
+  /* 320(栏) + 56 + 768(正文) + 56 = 1200：正文正好填满内容区 */
+  --shell-max: 75rem;
+  --gutter: 3.5rem;
+
+  --code-bg: #24262a;
+  --code-fg: #e7e8e5;
+  /* shiki 把注释色内联成 #6A737D，在 --code-bg 上只有 3.1:1 */
+  --code-comment: #9aa0a4;
+}
+
+.dark {
+  --color-ground: #1a1c1e;
+  --color-ink: #e7e8e5;
+  --color-soft: #9aa0a4; /* 6.5:1 */
+  --color-faint: #8a9095; /* 5.3:1 */
+  --color-rule: #303336;
+  --color-rule-strong: #41454a;
+  --color-seal: #c0473a;
+  --color-accent: #e07a6a; /* 5.8:1 — the darker seal would fail on ink */
+
+  --code-bg: #131518;
+  --code-fg: #e7e8e5;
+  --code-comment: #9aa0a4;
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+    background-color: var(--color-ground);
+    scroll-behavior: smooth;
+  }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--color-ground);
+    color: var(--color-ink);
+    font-family: var(--font-han);
+    font-size: 16px;
+    line-height: 1.75;
+    font-variant-numeric: tabular-nums;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    transition:
+      background-color var(--dur-slow) ease,
+      color var(--dur-slow) ease;
+  }
+
+  ::selection {
+    background-color: var(--color-accent);
+    color: var(--color-ground);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 3px;
+  }
+
+  /* h4 之前漏在这条之外，于是同一种行标题在首页（h4）是 1.75、
+     在标签页和搜索页（h2）是 1.4，行高不一样 */
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-weight: 600;
+    line-height: 1.4;
+  }
+}
+
+@layer components {
+  .lat {
+    font-family: var(--font-lat);
+  }
+
+  /* ── shell: rail + content, capped and centred ───── */
+  .shell {
+    max-width: var(--shell-max);
+    margin-inline: auto;
+    display: grid;
+    grid-template-columns: var(--rail-w) minmax(0, 1fr);
+    align-items: start;
+  }
+
+  /* ── rail ────────────────────────────────────────── */
+  .rail {
+    position: sticky;
+    top: 0;
+    height: 100dvh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    /* 底距是手调的对齐值：让栏脚分隔线落在页脚线上（短页实测 y=807）。
+       改动栏内任何元素的高度，都要重新配平这一个数。 */
+    padding: 2rem 2rem 1rem;
+    border-right: 1px solid var(--color-rule);
+  }
+
+  /* 只有中间（年份、标签、目录、导航）滚动，身份和底部控件始终在位 */
+  .rail-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    margin-right: -0.6rem;
+    padding-right: 0.5rem;
+  }
+
+  .rail-mark {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .seal {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    /* 1.1em gives the glyph room; the 0.847em ink then sits ~5px inside */
+    width: 1.1em;
+    height: 1.1em;
+    font-size: 2.5rem;
+    line-height: 1;
+    letter-spacing: normal;
+    color: var(--color-ground);
+    background-color: var(--color-seal);
+    border-radius: 0.13em;
+  }
+
+  .seal > span {
+    display: block;
+    /* optical centring measured for Noto Sans SC's 胡 (ink sits low + a hair right) */
+    transform: translate(0.014em, -0.032em);
+  }
+
+  .rail-who h1,
+  .rail-who .rail-name {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    line-height: 1.15;
+  }
+
+  .bar-name {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    line-height: 1.15;
+  }
+
+  .rail-who .lat-sub {
+    display: block;
+    font-family: var(--font-lat);
+    font-weight: 600;
+    font-size: 0.75rem;
+    letter-spacing: 0.26em;
+    color: var(--color-faint);
+    margin-top: 0.25rem;
+  }
+
+  .rail-pos {
+    margin: 1.25rem 0 0;
+    color: var(--color-soft);
+    font-size: 0.9rem;
+    max-width: 18em;
+  }
+
+  .k {
+    display: block;
+    font-size: 0.75rem;
+    letter-spacing: 0.16em;
+    color: var(--color-accent);
+    margin-bottom: 0.5rem;
+  }
+
+  /* 年份索引：左栏的主体，首页每一节都在这里有个锚点 */
+  .rail-idx {
+    margin-top: 1.25rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--color-rule);
+  }
+
+  .rail-idx ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.05rem 1rem;
+  }
+
+  .rail-idx a {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.1rem 0;
+    font-family: var(--font-lat);
+    font-size: 0.85rem;
+    letter-spacing: 0.04em;
+    color: var(--color-soft);
+    text-decoration: none;
+    transition: color var(--dur) ease;
+  }
+
+  .rail-idx a i {
+    font-style: normal;
+    font-size: 0.75rem;
+    color: var(--color-faint);
+  }
+
+  .rail-idx a:hover {
+    color: var(--color-ink);
+  }
+
+  .rail-idx a.is-active {
+    color: var(--color-accent);
+  }
+
+  /* 同特异性下 .is-active 会盖掉 :hover，高亮项就失去按下感 */
+  .rail-idx a.is-active:hover {
+    color: var(--color-ink);
+  }
+
+  .rail-idx a.is-active i {
+    color: var(--color-accent);
+  }
+
+  .rail-idx .more {
+    display: inline-block;
+    margin-top: 0.75rem;
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    color: var(--color-soft);
+    text-decoration: none;
+    border-bottom: 1px solid var(--color-rule);
+    padding-bottom: 1px;
+    transition:
+      color var(--dur) ease,
+      border-color var(--dur) ease;
+  }
+
+  .rail-idx .more:hover,
+  .rail-idx .more.is-active {
+    color: var(--color-accent);
+    border-color: var(--color-accent);
+  }
+
+  .rail-nav {
+    margin-top: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    border-top: 1px solid var(--color-rule);
+    padding-top: 0.75rem;
+  }
+
+  .rail-nav a {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    padding: 0.25rem 0;
+    color: var(--color-soft);
+    text-decoration: none;
+    transition: color var(--dur) ease;
+  }
+
+  .rail-nav a .en {
+    font-family: var(--font-lat);
+    font-size: 0.75rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--color-faint);
+    transition: color var(--dur) ease;
+  }
+
+  .rail-nav a:hover {
+    color: var(--color-ink);
+  }
+
+  .rail-nav a.is-active {
+    color: var(--color-accent);
+  }
+
+  .rail-nav a.is-active:hover {
+    color: var(--color-ink);
+  }
+
+  .rail-nav a.is-active .en {
+    color: var(--color-accent);
+  }
+
+  .rail-foot {
+    margin-top: auto;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--color-rule);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .rail-foot .where {
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    color: var(--color-faint);
+  }
+
+  /* 主题与语言两组分段控件并排一行 */
+  .switches {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 0.5rem;
+  }
+
+  /* 分段控件：主题（自动/浅色/深色）与语言（中文/EN）共用 */
+  .seg {
+    display: inline-flex;
+    border: 1px solid var(--color-rule-strong);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .seg button {
+    appearance: none;
+    border: 0;
+    border-left: 1px solid var(--color-rule);
+    background: transparent;
+    color: var(--color-soft);
+    font-family: var(--font-han);
+    font-size: 0.8rem;
+    line-height: 1;
+    letter-spacing: 0.08em;
+    /* WCAG 2.5.8：并排的独立目标，间距豁免不成立 */
+    min-height: 24px;
+    padding: 0.38rem 0.5rem;
+    cursor: pointer;
+    transition:
+      color var(--dur) ease,
+      background-color var(--dur) ease;
+  }
+
+  .seg button:first-child {
+    border-left: 0;
+  }
+
+  .seg button:hover {
+    color: var(--color-ink);
+  }
+
+  .seg button[aria-pressed='true'] {
+    color: var(--color-ink);
+    background-color: color-mix(in srgb, var(--color-ink) 9%, transparent);
+  }
+
+  /* mobile bar + off-canvas drawer (shown under 861px) */
+  .mobilebar,
+  .backdrop {
+    display: none;
+  }
+
+  /* ── pane ────────────────────────────────────────── */
+  .pane {
+    display: flex;
+    flex-direction: column;
+    min-height: 100dvh;
+    padding: 3rem var(--gutter) 3rem;
+    min-width: 0;
+  }
+
+  .pane-inner {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    /* flex item 默认 min-width:auto，宽表格会把整列顶宽、整页横向滚动 */
+    min-width: 0;
+    /* 48rem = 768px = 48 个汉字/行，同时也是整个内容区的宽度。
+       再窄页面在大屏上会显得局促；再宽一行就要超过 50 个汉字。 */
+    max-width: 48rem;
+  }
+
+  /* 内容不足一屏时，把页脚顶到视口底部 */
+  .pane-body {
+    flex: 1 0 auto;
+  }
+
+  .sect {
+    padding: 0 0 3rem;
+    scroll-margin-top: 1.5rem;
+  }
+
+  .sect-head {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 2px solid var(--color-ink);
+  }
+
+  /* 页面标题必须压得住它下面的行标题：1.5rem = 24px */
+  .sect-head h1,
+  .sect-head h2 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    line-height: 1.25;
+    text-wrap: balance;
+  }
+
+  .sect-head .en {
+    font-family: var(--font-lat);
+    font-size: 0.75rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--color-faint);
+  }
+
+  .sect-head .more {
+    margin-left: auto;
+    font-family: var(--font-lat);
+    font-size: 0.8rem;
+    letter-spacing: 0.04em;
+    color: var(--color-soft);
+    text-decoration: none;
+    border-bottom: 1px solid var(--color-rule);
+    padding-bottom: 2px;
+    transition:
+      color var(--dur) ease,
+      border-color var(--dur) ease;
+  }
+
+  .sect-head .more:hover {
+    color: var(--color-accent);
+    border-color: var(--color-accent);
+  }
+
+  /* rows: body + a metadata gutter that stays aligned throughout */
+  .rows {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 10rem;
+    gap: 0.25rem 2.5rem;
+    padding: 1rem 0;
+    border-top: 1px solid var(--color-rule);
+  }
+
+  .row:first-of-type {
+    border-top: 0;
+    padding-top: 0.75rem;
+  }
+
+  .row-main :is(h2, h3, h4) {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    text-wrap: balance;
+  }
+
+  .row-main :is(h2, h3, h4) a {
+    color: inherit;
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color var(--dur) ease;
+  }
+
+  .row-main :is(h2, h3, h4) a:hover {
+    border-color: var(--color-ink);
+  }
+
+  .row-main p {
+    margin: 0.25rem 0 0;
+    color: var(--color-soft);
+    font-size: 0.9rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .row-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.1rem;
+    text-align: right;
+    font-family: var(--font-lat);
+    font-size: 0.8rem;
+    letter-spacing: 0.04em;
+    color: var(--color-faint);
+  }
+
+  .row-meta .zh {
+    font-family: var(--font-han);
+    letter-spacing: 0.08em;
+  }
+
+  .row-tags {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.1rem 0.5rem;
+    margin-top: 0.1rem;
+  }
+
+  /* 年份小节（首页的骨架） */
+  .yr {
+    padding-bottom: 2.5rem;
+    scroll-margin-top: 4.5rem;
+  }
+
+  /* 最后一节直接接页脚，不必再空出小节间距 */
+  .yr:last-of-type {
+    padding-bottom: 0.75rem;
+  }
+
+  .yr-head {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--color-rule-strong);
+  }
+
+  .yr-head h3 {
+    margin: 0;
+    font-family: var(--font-lat);
+    font-size: 1.2rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+  }
+
+  .yr-head .n {
+    margin-left: auto;
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    color: var(--color-faint);
+  }
+
+  .lead {
+    margin: 1rem 0 0;
+    color: var(--color-soft);
+  }
+
+  .colophon {
+    margin-top: 1rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--color-rule);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.25rem;
+    color: var(--color-soft);
+    font-size: 0.85rem;
+  }
+
+  .colophon .d {
+    font-family: var(--font-lat);
+    letter-spacing: 0.04em;
+    color: var(--color-faint);
+  }
+
+  .colophon a {
+    color: inherit;
+    text-decoration: underline;
+    text-decoration-color: var(--color-rule-strong);
+    text-underline-offset: 2px;
+    transition:
+      color var(--dur) ease,
+      text-decoration-color var(--dur) ease;
+  }
+
+  .colophon a:hover {
+    color: var(--color-accent);
+    text-decoration-color: var(--color-accent);
+  }
+
+  .skip {
+    position: absolute;
+    left: -9999px;
+    top: 0;
+    z-index: 50;
+    background: var(--color-ink);
+    color: var(--color-ground);
+    padding: 0.5rem 1rem;
+    border-radius: 0 0 var(--radius) 0;
+    font-size: 0.85rem;
+    text-decoration: none;
+  }
+
+  .skip:focus {
+    left: 0;
+  }
+
+  /* ── article ─────────────────────────────────────── */
+  .article-title {
+    margin: 0 0 0.75rem;
+    font-size: 2rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    line-height: 1.35;
+  }
+
+  .article-meta {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.25rem 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid var(--color-ink);
+    font-family: var(--font-lat);
+    font-size: 0.8rem;
+    letter-spacing: 0.06em;
+    color: var(--color-faint);
+  }
+
+  /* 标签的样式统一由 .tag 提供，这里只补 24px 命中高度 */
+  .article-meta .tag {
+    padding-block: 0.1rem;
+  }
+
+  .article-meta .sep {
+    /* 1.64:1 的 rule-strong 几乎看不见；提到 faint 才真的当成分隔符 */
+    color: var(--color-faint);
+  }
+
+  .postnav {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 3rem;
+    margin-top: 3.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--color-rule-strong);
+  }
+
+  .postnav a {
+    display: block;
+    padding: 0.5rem 0;
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .postnav .n {
+    display: block;
+    font-family: var(--font-lat);
+    font-size: 0.75rem;
+    letter-spacing: 0.16em;
+    color: var(--color-faint);
+    margin-bottom: 0.1rem;
+  }
+
+  .postnav .t {
+    font-size: 0.9rem;
+    color: var(--color-soft);
+    transition: color var(--dur) ease;
+  }
+
+  .postnav a:hover .t {
+    color: var(--color-accent);
+  }
+
+  .postnav .next {
+    text-align: right;
+  }
+
+  /* 左栏里的文章目录 */
+  .toc {
+    margin-top: 1.25rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--color-rule);
+  }
+
+  .toc ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.05rem;
+    max-height: 42vh;
+    overflow-y: auto;
+    scrollbar-width: thin;
+  }
+
+  .toc a {
+    display: block;
+    padding: 0.25rem 0 0.25rem 0.75rem;
+    margin-left: -1px;
+    border-left: 2px solid transparent;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: var(--color-soft);
+    text-decoration: none;
+    transition:
+      color var(--dur) ease,
+      border-color var(--dur) ease;
+  }
+
+  .toc a:hover {
+    color: var(--color-ink);
+  }
+
+  .toc a.is-active {
+    color: var(--color-accent);
+    border-left-color: var(--color-accent);
+  }
+
+  .toc a.is-active:hover {
+    color: var(--color-ink);
+  }
+
+  .toc a.depth-3 {
+    padding-left: 1.5rem;
+    font-size: 0.8rem;
+    color: var(--color-faint);
+  }
+
+  .toc a.depth-3:hover {
+    color: var(--color-ink);
+  }
+
+  /* ── 正文 ────────────────────────────────────────── */
+  .prose {
+    padding-top: 1.5rem;
+    overflow-wrap: break-word;
+  }
+
+  /* 行宽由 .pane-inner 的 42rem 统一决定，正文、代码、表格、图片同宽。
+     正文不再单独收窄——收窄会在右侧留出一条空白，纯文字文章尤其明显。 */
+  .prose > p {
+    text-wrap: pretty;
+  }
+
+  /* 正文占满栏宽：代码、表格、图片随之一起伸展 */
+  .prose > pre,
+  .prose > table,
+  .prose > figure,
+  .prose > .astro-code {
+    max-width: 100%;
+  }
+
+  .prose p {
+    margin: 0 0 1rem;
+  }
+
+  .prose h2,
+  .prose h3,
+  .prose h4 {
+    scroll-margin-top: 5rem;
+  }
+
+  /* 正文的第一个标题不该再顶出一条线 */
+  .prose > h2:first-child,
+  .prose > h3:first-child,
+  .prose > h4:first-child {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: 0;
+  }
+
+  .prose h2 {
+    margin: 2.5rem 0 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--color-rule);
+    font-size: 1.4rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+  }
+
+  .prose h3 {
+    margin: 2rem 0 0.75rem;
+    font-size: 1.12rem;
+    font-weight: 600;
+  }
+
+  .prose h4 {
+    margin: 1.5rem 0 0.5rem;
+    /* 与正文同号，靠字距 + 颜色 + 字重区分，不再多占一档字号 */
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--color-soft);
+  }
+
+  .prose ul,
+  .prose ol {
+    margin: 0 0 1rem;
+    padding-left: 1.35em;
+  }
+
+  /* Tailwind 的 preflight 会清掉列表符号，这里要还回来 */
+  .prose ul {
+    list-style: disc;
+  }
+
+  .prose ol {
+    list-style: decimal;
+  }
+
+  .prose li {
+    margin-bottom: 0.25rem;
+  }
+
+  .prose li::marker {
+    color: var(--color-faint);
+  }
+
+  .prose li > ul,
+  .prose li > ol {
+    margin: 0.25rem 0 0;
+  }
+
+  .prose a {
+    color: var(--color-accent);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+    transition: color var(--dur) ease;
+  }
+
+  .prose a:hover {
+    color: var(--color-ink);
+  }
+
+  .prose strong {
+    font-weight: 600;
+  }
+
+  .prose code {
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    padding: 0.1em 0.35em;
+    border-radius: var(--radius);
+    background-color: color-mix(in srgb, var(--color-ink) 7%, transparent);
+  }
+
+  .prose pre,
+  .prose .astro-code {
+    margin: 0 0 1.25rem;
+    padding: 1rem 1.25rem;
+    background-color: var(--code-bg) !important;
+    color: var(--code-fg) !important;
+    border-radius: var(--radius);
+    overflow-x: auto;
+    font-size: 0.85rem;
+    line-height: 1.7;
+  }
+
+  /* 暗色下代码块底色 (#131518) 与钢板底 (#1a1c1e) 只差 1.07:1，
+     没有边就完全看不出形状 */
+  .dark .prose pre,
+  .dark .prose .astro-code {
+    border: 1px solid var(--color-rule);
+  }
+
+  .prose pre code {
+    background: none;
+    padding: 0;
+    font-size: inherit;
+    color: inherit;
+  }
+
+  /* shiki 的注释色 #6A737D 在 --code-bg 上只有 3.1:1；
+     只替换这一种颜色，其余 token 保持原样 */
+  .prose pre span[style*='#6A737D'],
+  .prose pre span[style*='#6a737d'] {
+    color: var(--code-comment) !important;
+  }
+
+  /* 代码块右上角的复制按钮（由 BaseLayout 的脚本注入） */
+  .code-block {
+    position: relative;
+  }
+
+  .code-copy {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    padding: 0.25rem 0.5rem;
+    border: 1px solid color-mix(in srgb, var(--code-fg) 24%, transparent);
+    border-radius: var(--radius);
+    background: color-mix(in srgb, var(--code-bg) 78%, transparent);
+    color: color-mix(in srgb, var(--code-fg) 68%, transparent);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.06em;
+    line-height: 1.7;
+    cursor: pointer;
+    transition:
+      color var(--dur) ease,
+      border-color var(--dur) ease,
+      opacity var(--dur) ease;
+  }
+
+  .code-copy:hover,
+  .code-copy:focus-visible {
+    color: var(--code-fg);
+    border-color: color-mix(in srgb, var(--code-fg) 50%, transparent);
+  }
+
+  .code-copy:active {
+    background: color-mix(in srgb, var(--code-fg) 14%, transparent);
+  }
+
+  .code-copy:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  /* 有 hover 的设备平时收起来，触摸设备常显 */
+  @media (hover: hover) {
+    .code-copy {
+      opacity: 0;
+    }
+
+    .code-block:hover .code-copy,
+    .code-copy:focus-visible,
+    .code-copy.is-copied {
+      opacity: 1;
+    }
+  }
+
+  .prose blockquote {
+    margin: 0 0 1.25rem;
+    padding: 0.1rem 0 0.1rem 1rem;
+    border-left: 2px solid var(--color-accent);
+    color: var(--color-soft);
+  }
+
+  .prose blockquote p:last-child {
+    margin-bottom: 0;
+  }
+
+  .prose img {
+    max-width: 100%;
+    height: auto;
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius);
+  }
+
+  .prose hr {
+    margin: 2.5rem 0;
+    border: 0;
+    border-top: 1px solid var(--color-rule);
+  }
+
+  .prose table {
+    width: 100%;
+    margin: 0 0 1.25rem;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+    display: block;
+    overflow-x: auto;
+  }
+
+  .prose th,
+  .prose td {
+    border: 1px solid var(--color-rule);
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  .prose th {
+    background-color: color-mix(in srgb, var(--color-ink) 5%, transparent);
+    font-weight: 600;
+  }
+
+  .prose figure {
+    margin: 0 0 1.25rem;
+  }
+
+  .prose figcaption {
+    margin-top: 0.5rem;
+    font-size: 0.8rem;
+    color: var(--color-faint);
+  }
+
+  /* 关于页底部的联系链接块（原来这个类没有任何样式） */
+  .page-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.5rem;
+    margin-top: 2rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--color-rule);
+    font-family: var(--font-lat);
+    font-size: 0.85rem;
+    letter-spacing: 0.04em;
+  }
+
+  .page-links a,
+  .page-links span {
+    color: var(--color-soft);
+    text-decoration: none;
+    border-bottom: 1px solid var(--color-rule);
+    padding-bottom: 2px;
+    transition:
+      color var(--dur) ease,
+      border-color var(--dur) ease;
+  }
+
+  .page-links a:hover {
+    color: var(--color-accent);
+    border-color: var(--color-accent);
+  }
+
+  /* ── 标签页 ──────────────────────────────────────── */
+  /* 标签名短，铺成会换行的云，宽屏下也不会一行只有两三个字 */
+  .tagcloud {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 0.5rem;
+  }
+
+  .tagcloud .tag {
+    font-size: 0.9rem;
+    padding: 0.25rem 0.75rem;
+  }
+
+  /* ── 搜索 ────────────────────────────────────────── */
+  .search-box {
+    position: relative;
+    margin: 1.5rem 0 0;
+    max-width: 34rem;
+    border-bottom: 1px solid var(--color-rule-strong);
+    transition: border-color var(--dur) ease;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .search-box svg {
+    flex: none;
+    width: 17px;
+    height: 17px;
+    color: var(--color-faint);
+  }
+
+  .search-input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    background: transparent;
+    color: var(--color-ink);
+    font-family: var(--font-han);
+    font-size: 1rem;
+    padding: 0.5rem 0;
+    -webkit-appearance: none;
+  }
+
+  /* 焦点由输入框自身的 :focus-visible 描边 + 这条下划线共同表达 */
+  .search-box:focus-within {
+    border-bottom-color: var(--color-accent);
+    box-shadow: 0 1px 0 0 var(--color-accent);
+  }
+
+  /* 焦点指示放在整条下边线上：1px 边框 + 1px 投影 = 2px 红线，
+     不再用 2px 描边环（那会在输入框四周画一个突兀的红框） */
+  .search-input:focus-visible {
+    outline: none;
+  }
+
+  .search-input::placeholder {
+    color: var(--color-faint);
+  }
+
+  /* Safari/Chromium 会给 type=search 加一个自带的清除按钮，和上面那个打架 */
+  .search-input::-webkit-search-cancel-button,
+  .search-input::-webkit-search-decoration {
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  .search-clear {
+    flex: none;
+    display: none;
+    border: 0;
+    background: transparent;
+    color: var(--color-faint);
+    cursor: pointer;
+    transition: color var(--dur) ease;
+    /* WCAG 2.5.8：15px 图标 + 内边距凑够 24px 命中区 */
+    padding: 0.25rem;
+    line-height: 0;
+  }
+
+  .search-clear.visible {
+    display: block;
+  }
+
+  .search-clear:hover {
+    color: var(--color-accent);
+  }
+
+  .search-clear:active {
+    color: var(--color-ink);
+  }
+
+  .search-clear svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  .search-info {
+    margin-top: 1rem;
+    font-family: var(--font-lat);
+    font-size: 0.8rem;
+    letter-spacing: 0.04em;
+    color: var(--color-faint);
+  }
+
+  .search-results {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .search-results .row-main :is(h2, h3, h4) mark {
+    background: none;
+    color: var(--color-accent);
+    font-weight: 600;
+  }
+
+  /* ── 阅读进度 ────────────────────────────────────── */
+  /* 2px 朱红细线贴在视口顶端，宽度跟滚动走。长文里这是唯一能回答
+     “读到哪了”的东西——左栏目录只标章节。 */
+  .progress {
+    position: fixed;
+    inset: 0 0 auto 0;
+    height: 2px;
+    z-index: 45;
+    pointer-events: none;
+  }
+
+  .progress i {
+    display: block;
+    height: 100%;
+    background-color: var(--color-accent);
+    transform: scaleX(var(--p, 0));
+    transform-origin: 0 50%;
+  }
+
+  /* ── 相关文章 ────────────────────────────────────── */
+  .related {
+    margin-top: 3.5rem;
+  }
+
+  /* ── 存档筛选 ────────────────────────────────────── */
+  .filter {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    max-width: 22rem;
+    border-bottom: 1px solid var(--color-rule-strong);
+    transition: border-color var(--dur) ease;
+  }
+
+  .filter:focus-within {
+    border-bottom-color: var(--color-accent);
+    box-shadow: 0 1px 0 0 var(--color-accent);
+  }
+
+  .filter svg {
+    flex: none;
+    width: 15px;
+    height: 15px;
+    color: var(--color-faint);
+  }
+
+  .filter-input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    background: transparent;
+    color: var(--color-ink);
+    font-family: var(--font-han);
+    font-size: 0.9rem;
+    padding: 0.5rem 0;
+    -webkit-appearance: none;
+  }
+
+  .filter-input:focus-visible {
+    outline: none;
+  }
+
+  .filter-input::placeholder {
+    color: var(--color-faint);
+  }
+
+  .filter-input::-webkit-search-cancel-button {
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  .filter-count {
+    font-family: var(--font-lat);
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+    color: var(--color-faint);
+  }
+
+  .yr[hidden],
+  .row[hidden] {
+    display: none;
+  }
+
+  /* 相关文章的标题用正文 h2 的档（1.4rem），不跟页面标题（1.5rem）抢 */
+  .related .sect-head h2 {
+    font-size: 1.4rem;
+  }
+
+  .notFound-links {
+    display: inline-flex;
+    gap: 1rem;
+    margin-left: 0.5rem;
+  }
+
+  /* ── 返回顶部 ────────────────────────────────────── */
+  .to-top {
+    position: fixed;
+    right: 1.5rem;
+    bottom: 1.5rem;
+    z-index: 20;
+    display: none;
+    background: color-mix(in srgb, var(--color-ground) 90%, transparent);
+    backdrop-filter: blur(6px);
+  }
+
+  .to-top.visible {
+    display: grid;
+  }
+
+  .to-top svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  /* 语言切到英文时，中英双写的小标就多余了。
+     必须待在 components 层：base 层的 display:none 会被 .rail-who .lat-sub 的
+     display:block 压掉（层序优先于特异性），结果英文界面里还留着 HMILYLD。 */
+  html[data-lang='en'] .lat-sub,
+  html[data-lang='en'] .en {
+    display: none;
+  }
+}
+
+/* ── responsive ──────────────────────────────────── */
+@media (max-width: 1199px) {
+  :root {
+    --gutter: 2.5rem;
+  }
+}
+
+/* 栏宽必须比 gutter 断点更早收窄，否则 1025–1071 之间
+   320(栏) + 80(gutter) 会把正文挤到 625px，出现「越宽越窄」 */
+@media (max-width: 1072px) {
+  :root {
+    --rail-w: 272px;
+  }
+}
+
+@media (max-width: 1024px) {
+  /* 栏更窄了，两组分段控件收紧一点才排得下一行 */
+  .switches {
+    gap: 0.25rem;
+  }
+
+  .seg button {
+    padding: 0.38rem 0.5rem;
+  }
+
+  .row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.25rem;
+  }
+
+  .row-meta {
+    flex-direction: row;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+    text-align: left;
+  }
+}
+
+@media (max-width: 860px) {
+  .shell {
+    display: block;
+  }
+
+  /* compact bar keeps the identity + a way into the drawer */
+  .mobilebar {
+    position: sticky;
+    top: 0;
+    /* 必须压在遮罩之上，否则抽屉打开时「关闭」按钮点不到 */
+    z-index: 36;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.75rem 1.25rem;
+    background: color-mix(in srgb, var(--color-ground) 92%, transparent);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--color-rule);
+  }
+
+  .mobilebar .rail-mark {
+    gap: 0.5rem;
+  }
+
+  .mobilebar .seal {
+    font-size: 1.9rem;
+  }
+
+  .mobilebar .rail-who .bar-name {
+    font-size: 1.15rem;
+  }
+
+  .mobilebar .rail-who .lat-sub {
+    font-size: 0.75rem;
+    letter-spacing: 0.16em;
+  }
+
+  .menu-toggle .close {
+    display: none;
+  }
+
+  /* 抽屉打开时按钮换成「关闭」；两个标签都在 DOM 里，随语言一起翻译 */
+  body.has-drawer .menu-toggle .menu {
+    display: none;
+  }
+
+  body.has-drawer .menu-toggle .close {
+    display: inline;
+  }
+
+  .backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 35;
+    background: color-mix(in srgb, #1a1c1e 45%, transparent);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--dur-slow) ease;
+  }
+
+  .backdrop.is-open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* the rail becomes an off-canvas drawer */
+  .rail {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    height: 100dvh;
+    width: min(84vw, 300px);
+    z-index: 40;
+    background: var(--color-ground);
+    border-right: 1px solid var(--color-rule);
+    padding: 1.5rem 1.25rem 2rem;
+    transform: translateX(-100%);
+    /* 收起来后彻底不可见，否则里面的链接还能被 Tab 到 */
+    visibility: hidden;
+    transition:
+      transform var(--dur-slow) ease,
+      visibility var(--dur-slow);
+  }
+
+  .rail.is-open {
+    transform: none;
+    visibility: visible;
+  }
+
+  .rail-pos {
+    max-width: none;
+  }
+
+  .toc ul {
+    max-height: none;
+  }
+
+  body.has-drawer {
+    overflow: hidden;
+  }
+
+  .pane {
+    min-height: 0;
+    padding: 2rem 1.25rem 3.5rem;
+  }
+
+  .pane-inner {
+    /* width:100% 不能省：只写 margin-inline:auto 会让 flex 子项从 stretch
+       变成收缩包裹，宽表格的 min-content 就会把整列顶宽、整页横向滚动 */
+    width: 100%;
+    max-width: 48rem;
+    margin-inline: auto;
+  }
+
+  .article-title {
+    font-size: 1.65rem;
+  }
+
+  .postnav {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .postnav .next {
+    text-align: left;
+    border-top: 1px solid var(--color-rule);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+@media print {
+  /* 打印永远用浅色 token：暗色主题下正文是 #e7e8e5，纸是白的 */
+  :root,
+  .dark {
+    --color-ground: #fff;
+    --color-ink: #111;
+    --color-soft: #333;
+    --color-faint: #555;
+    --color-rule: #ccc;
+    --color-rule-strong: #999;
+  }
+
+  .rail,
+  .mobilebar,
+  .backdrop,
+  .to-top {
+    display: none !important;
+  }
+
+  .shell {
+    display: block;
+    max-width: none;
+  }
+
+  .pane {
+    min-height: 0;
+    padding: 0;
+  }
+}

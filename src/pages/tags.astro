@@ -1,0 +1,36 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { getAllTagCounts, getVisibleSortedPosts } from '../utils/posts';
+
+const tags = await getAllTagCounts();
+const posts = await getVisibleSortedPosts();
+---
+
+<BaseLayout title="标签">
+  <section class="sect">
+    <div class="sect-head">
+      <h1 data-i18n="tags.title">标签</h1>
+      <span class="en">Tags</span>
+    </div>
+    <p
+      class="lead"
+      data-i18n-template="tags.lead"
+      data-i18n-args={JSON.stringify([String(tags.length), String(posts.length)])}
+    >
+      共 {tags.length} 个标签，{posts.length} 篇文章。
+    </p>
+  </section>
+
+  <ul class="tagcloud">
+    {
+      tags.map((tag) => (
+        <li>
+          <a class="tag tag--chip" href={`/tags/${tag.name}`}>
+            {tag.name}
+            <span class="n">{tag.count}</span>
+          </a>
+        </li>
+      ))
+    }
+  </ul>
+</BaseLayout>

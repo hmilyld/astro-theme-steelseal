@@ -1,0 +1,43 @@
+---
+import type { GetStaticPaths, InferGetStaticPropsType } from 'astro';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import PostRows from '../../components/PostRows.astro';
+import { getVisibleSortedPosts } from '../../utils/posts';
+
+export const getStaticPaths = (async () => {
+  const posts = await getVisibleSortedPosts();
+  const tagSet = new Set<string>();
+  posts.forEach((p) => {
+    p.data.tags.forEach((t) => tagSet.add(t));
+  });
+  return [...tagSet].map((tag) => ({
+    params: { tag },
+    props: { tag },
+  }));
+}) satisfies GetStaticPaths;
+
+type Props = InferGetStaticPropsType<typeof getStaticPaths>;
+
+const { tag }: Props = Astro.props;
+const allPosts = await getVisibleSortedPosts();
+const posts = allPosts.filter((p) => p.data.tags.includes(tag));
+---
+
+<BaseLayout title={`${tag} - 标签`} noindex={true}>
+  <section class="sect">
+    <div class="sect-head">
+      <h1>{tag}</h1>
+      <span class="en">Tag</span>
+      <a class="more" href="/tags" data-i18n="tag.back">← 全部标签</a>
+    </div>
+    <p
+      class="lead"
+      data-i18n-template="tag.total"
+      data-i18n-args={JSON.stringify([String(posts.length)])}
+    >
+      共 {posts.length} 篇文章
+    </p>
+  </section>
+
+  <PostRows posts={posts} date="full" excerpt level={2} />
+</BaseLayout>

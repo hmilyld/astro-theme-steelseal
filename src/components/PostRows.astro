@@ -1,0 +1,56 @@
+---
+import type { CollectionEntry } from 'astro:content';
+import { getPostSlug, formatDate, formatDateShort, readingMinutes } from '../utils/posts';
+
+interface Props {
+  posts: CollectionEntry<'posts'>[];
+  /** 同一年里只写 MM-DD 就够了；跨年的列表用完整日期 */
+  date?: 'short' | 'full';
+  /** 显示摘要。摘录本来就在 frontmatter 里，首页与标签页都该用上 */
+  excerpt?: boolean;
+  /** 标题层级：首页年份节下面用 4，标签页 h1 下面用 2 */
+  level?: 2 | 3 | 4;
+}
+
+const { posts, date = 'short', excerpt = false, level = 3 } = Astro.props;
+
+// 动态标签名让同一份行标记能落进不同的标题层级，
+// 免得标签页出现 h1 直接跳 h3、首页的年份标题和文章标题同级
+const Heading = `h${level}` as 'h2' | 'h3' | 'h4';
+---
+
+<ul class="rows">
+  {
+    posts.map((post) => {
+      const iso = formatDate(post.data.date);
+      const minutes = readingMinutes(post.body ?? '');
+      return (
+        <li class="row">
+          <div class="row-main">
+            <Heading>
+              <a href={`/posts/${getPostSlug(post)}`}>{post.data.title}</a>
+            </Heading>
+            {excerpt && post.data.excerpt && <p>{post.data.excerpt}</p>}
+          </div>
+          <div class="row-meta">
+            <time datetime={iso}>{date === 'full' ? iso : formatDateShort(post.data.date)}</time>
+            <span
+              data-i18n-template="post.minutes"
+              data-i18n-args={JSON.stringify([String(minutes)])}
+            >
+              {minutes} 分钟
+            </span>
+            {/* 标签只作阅读线索，不做链接：48 行再来 96 个 Tab 停留点不值得 */}
+            {post.data.tags.length > 0 && (
+              <span class="row-tags">
+                {post.data.tags.slice(0, 2).map((tag) => (
+                  <span class="tag tag--static">{tag}</span>
+                ))}
+              </span>
+            )}
+          </div>
+        </li>
+      );
+    })
+  }
+</ul>

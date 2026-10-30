@@ -1,0 +1,25 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+interface Props {
+  title: string;
+  description?: string;
+  en?: string;
+}
+
+const { title, description, en } = Astro.props;
+---
+
+<BaseLayout title={title} description={description}>
+  <section class="sect">
+    <div class="sect-head">
+      <h1>{title}</h1>
+      {en && <span class="en">{en}</span>}
+    </div>
+    {description && <p class="lead">{description}</p>}
+  </section>
+
+  <div class="prose">
+    <slot />
+  </div>
+</BaseLayout>

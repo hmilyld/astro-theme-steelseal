@@ -1,0 +1,31 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import PostRows from '../components/PostRows.astro';
+import { getVisibleSortedPosts } from '../utils/posts';
+
+const posts = await getVisibleSortedPosts();
+const recent = posts.slice(0, 5);
+---
+
+<BaseLayout title="页面不存在" description="这个地址下没有内容" noindex={true}>
+  <section class="sect">
+    <div class="sect-head">
+      <h1 data-i18n="notFound.title">页面不存在</h1>
+      <span class="en">404</span>
+    </div>
+    <p class="lead" data-i18n="notFound.lead">
+      这个地址下没有内容。可能是链接过期，或者文章换过位置。
+    </p>
+  </section>
+
+  <PostRows posts={recent} date="full" level={2} />
+
+  <p class="note">
+    <span data-i18n="notFound.note">也可以从这些地方继续：</span>
+    <span class="notFound-links">
+      <a href="/" data-i18n="nav.home">首页</a>
+      <a href="/search" data-i18n="search.title">搜索</a>
+      <a href="/tags" data-i18n="tags.title">标签</a>
+    </span>
+  </p>
+</BaseLayout>

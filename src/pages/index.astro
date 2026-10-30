@@ -1,0 +1,105 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import PostRows from '../components/PostRows.astro';
+import { SITE } from '../config';
+import { getPostsByYear } from '../utils/posts';
+
+const years = await getPostsByYear();
+const total = years.reduce((sum, group) => sum + group.posts.length, 0);
+const firstYear = years.length > 0 ? years[years.length - 1]!.year : new Date().getFullYear();
+---
+
+<BaseLayout title={SITE.title} description={SITE.description}>
+  <section class="sect">
+    <div class="sect-head">
+      <h2 data-i18n="home.writing">写作</h2>
+      <span class="en">Writing</span>
+      <a class="more lat" href="/rss.xml">RSS</a>
+    </div>
+    <p
+      class="lead"
+      data-i18n-template="home.lead"
+      data-i18n-args={JSON.stringify([String(firstYear), String(total)])}
+    >
+      从 {firstYear} 年写到现在，共 {total} 篇。
+    </p>
+
+    <div class="filter">
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <circle cx="11" cy="11" r="8"></circle>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+      </svg>
+      <input
+        type="search"
+        id="archiveFilter"
+        class="filter-input"
+        placeholder="筛选标题或标签…"
+        autocomplete="off"
+        aria-label="筛选文章"
+        data-i18n-placeholder="home.filter"
+        data-i18n-aria="home.filterLabel"
+      />
+      <span class="filter-count" id="archiveCount" role="status" aria-live="polite"></span>
+    </div>
+  </section>
+
+  {
+    years.map((group) => (
+      <section class="yr" id={`y${group.year}`}>
+        <div class="yr-head">
+          <h3>{group.year}</h3>
+          <span
+            class="n"
+            data-i18n-template="home.yearCount"
+            data-i18n-args={JSON.stringify([String(group.posts.length)])}
+          >
+            {group.posts.length} 篇
+          </span>
+        </div>
+        <PostRows posts={group.posts} date="short" excerpt level={4} />
+      </section>
+    ))
+  }
+</BaseLayout>
+
+<script>
+  // 存档筛选：48 行之前只能靠滚动，现在可以按标题或标签收窄
+  (function () {
+    const input = document.getElementById('archiveFilter') as HTMLInputElement | null;
+    const count = document.getElementById('archiveCount');
+    if (!input) return;
+
+    const rows = [...document.querySelectorAll<HTMLElement>('.yr .row')];
+    const sections = [...document.querySelectorAll<HTMLElement>('.yr')];
+
+    const update = () => {
+      const query = input.value.trim().toLowerCase();
+      let shown = 0;
+
+      rows.forEach((row) => {
+        const hit = !query || (row.textContent ?? '').toLowerCase().includes(query);
+        row.hidden = !hit;
+        if (hit) shown += 1;
+      });
+
+      sections.forEach((section) => {
+        section.hidden = ![...section.querySelectorAll<HTMLElement>('.row')].some(
+          (row) => !row.hidden,
+        );
+      });
+
+      if (count) count.textContent = query ? String(shown) : '';
+    };
+
+    input.addEventListener('input', update);
+    update();
+  })();
+</script>

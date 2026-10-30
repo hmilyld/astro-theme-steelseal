@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="钢印">
+  <rect width="32" height="32" rx="4.5" fill="#b23a2e" />
+  <text
+    x="16"
+    y="16.5"
+    fill="#faf8f3"
+    font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans SC, serif"
+    font-size="21"
+    text-anchor="middle"
+    dominant-baseline="central"
+  >印</text>
+</svg>

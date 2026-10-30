@@ -1,0 +1,267 @@
+---
+import Seal from './Seal.astro';
+import Toc from './Toc.astro';
+import { SITE } from '../config';
+import type { TagCount, YearGroup } from '../utils/posts';
+
+interface Props {
+  years?: YearGroup[];
+  tags?: TagCount[];
+  /** 文章页把目录放进左栏，首页和其他页放年份索引 */
+  toc?: Array<{ depth: number; slug: string; text: string }>;
+  pathname: string;
+}
+
+const { years = [], tags = [], toc, pathname } = Astro.props;
+
+// 站点名只在首页当 h1；其余页面的 h1 归各自的内容标题
+const Brand = pathname === '/' ? 'h1' : 'div';
+
+const themes = [
+  { value: 'system', label: '自动' },
+  { value: 'light', label: '浅色' },
+  { value: 'dark', label: '深色' },
+];
+
+const langs = [
+  { value: 'zh', label: '中文' },
+  { value: 'en', label: 'EN' },
+];
+
+function isActive(href: string) {
+  if (href === '/') return pathname === '/';
+  return pathname.startsWith(href);
+}
+---
+
+<header class="mobilebar">
+  <a class="rail-mark" href="/">
+    <Seal char={SITE.seal} />
+    <div class="rail-who">
+      <span
+        class="bar-name"
+        role={pathname === '/' ? 'heading' : undefined}
+        aria-level={pathname === '/' ? '1' : undefined}>{SITE.title}</span
+      >
+      <span class="lat-sub">{SITE.latin}</span>
+    </div>
+  </a>
+  <button class="menu-toggle btn" type="button" aria-expanded="false" aria-controls="site-rail">
+    <span class="menu" data-i18n="rail.menu">目录</span>
+    <span class="close" data-i18n="rail.close">关闭</span>
+  </button>
+</header>
+
+<div class="backdrop" data-backdrop></div>
+
+<aside class="rail" id="site-rail">
+  <a class="rail-mark" href="/">
+    <Seal char={SITE.seal} />
+    <div class="rail-who">
+      <Brand class="rail-name">{SITE.title}</Brand>
+      <span class="lat-sub">{SITE.latin}</span>
+    </div>
+  </a>
+
+  <p class="rail-pos" data-i18n="rail.tagline">{SITE.tagline}</p>
+
+  <div class="rail-scroll">
+    {toc ? <Toc headings={toc} /> : null}
+
+    {
+      !toc && years.length > 0 && (
+        <nav class="rail-idx" aria-label="按年份浏览" data-i18n-aria="aria.years">
+          <span class="k" data-i18n="rail.years">
+            年份
+          </span>
+          <ul>
+            {years.map((group) => (
+              <li>
+                <a href={`/#y${group.year}`}>
+                  {group.year}
+                  <i>{group.posts.length}</i>
+                </a>
+              </li>
+            ))}
+          </ul>
+          <a
+            class:list={['more', 'lat', { 'is-active': pathname.startsWith('/tags') }]}
+            href="/tags"
+            aria-current={pathname.startsWith('/tags') ? 'page' : undefined}
+            data-i18n-template="rail.allTags"
+            data-i18n-args={JSON.stringify([String(tags.length)])}
+          >
+            全部标签 {tags.length}
+          </a>
+        </nav>
+      )
+    }
+  </div>
+
+  <nav class="rail-nav" aria-label="页面导航" data-i18n-aria="aria.nav">
+    {
+      SITE.nav.map((item) => (
+        <a
+          href={item.href}
+          class:list={[{ 'is-active': isActive(item.href) }]}
+          aria-current={isActive(item.href) ? 'page' : undefined}
+        >
+          <span class="zh" data-i18n={`nav.${item.key}`}>
+            {item.zh}
+          </span>
+          <span class="en">{item.en}</span>
+        </a>
+      ))
+    }
+  </nav>
+
+  <div class="rail-foot">
+    <span class="where">{SITE.place}</span>
+    <div class="switches">
+      <div class="seg" role="group" aria-label="主题" data-i18n-aria="aria.theme">
+        {
+          themes.map((t) => (
+            <button
+              type="button"
+              data-theme-value={t.value}
+              data-i18n={`theme.${t.value}`}
+              aria-pressed="false"
+            >
+              {t.label}
+            </button>
+          ))
+        }
+      </div>
+      <div class="seg" role="group" aria-label="语言" data-i18n-aria="aria.lang">
+        {
+          langs.map((l) => (
+            <button type="button" data-lang-value={l.value} aria-pressed="false">
+              {l.label}
+            </button>
+          ))
+        }
+      </div>
+    </div>
+  </div>
+</aside>
+
+<script>
+  // ── off-canvas drawer (mobile only) ──────────────────
+  const rail = document.getElementById('site-rail');
+  const menu = document.querySelector<HTMLButtonElement>('.menu-toggle');
+  const backdrop = document.querySelector<HTMLElement>('[data-backdrop]');
+
+  if (rail && menu && backdrop) {
+    const setOpen = (open: boolean) => {
+      rail.classList.toggle('is-open', open);
+      backdrop.classList.toggle('is-open', open);
+      menu.setAttribute('aria-expanded', String(open));
+      // 「目录/关闭」两个标签都在 DOM 里，由 body.has-drawer 决定显示哪个，
+      // 这样切换中英文时也交给 BaseLayout 的词典统一翻译
+      document.body.classList.toggle('has-drawer', open);
+
+      // 抽屉是模态的（遮罩 + body 锁滚动），背后的内容就不该再被 Tab 到
+      const pane = document.querySelector<HTMLElement>('main');
+      if (pane) pane.inert = open;
+
+      if (open) {
+        // 同一 tick 里 .rail 还计算成 visibility: hidden，focus() 会静默失败。
+        // 先等一帧、再强制一次样式计算，焦点才落得进去。
+        requestAnimationFrame(() => {
+          const first = rail.querySelector<HTMLAnchorElement>('.rail-nav a');
+          if (!first) return;
+          void rail.offsetWidth;
+          first.focus();
+          if (!rail.contains(document.activeElement)) {
+            // 过渡把 visibility 推到更后面时的兜底
+            rail.addEventListener('transitionend', () => first.focus(), { once: true });
+            window.setTimeout(() => first.focus(), 260);
+          }
+        });
+      } else if (window.getComputedStyle(menu).display !== 'none') {
+        menu.focus();
+      }
+    };
+
+    menu.addEventListener('click', () => setOpen(!rail.classList.contains('is-open')));
+    backdrop.addEventListener('click', () => setOpen(false));
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && rail.classList.contains('is-open')) setOpen(false);
+    });
+    rail.querySelectorAll('a').forEach((link) => {
+      link.addEventListener('click', () => setOpen(false));
+    });
+  }
+
+  // ── scroll-spy: 首页滚到哪一年，左栏就亮到哪一年 ─────
+  const links = [...document.querySelectorAll<HTMLAnchorElement>('.rail-idx a[href*="#"]')];
+  const targets = links
+    .map((link) => document.getElementById(link.getAttribute('href')?.split('#')[1] ?? ''))
+    .filter((el): el is HTMLElement => Boolean(el));
+
+  if (targets.length > 0) {
+    const setActive = (id: string) => {
+      links.forEach((link) => {
+        const active = link.getAttribute('href')?.endsWith(`#${id}`) ?? false;
+        link.classList.toggle('is-active', active);
+        if (active) link.setAttribute('aria-current', 'true');
+        else link.removeAttribute('aria-current');
+      });
+    };
+
+    let clickLocked = false;
+    let queued = false;
+
+    const update = () => {
+      queued = false;
+      if (clickLocked) return;
+
+      // 最后一节往往到不了阅读线，滚到底就直接认它
+      const atBottom =
+        window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4;
+      if (atBottom) {
+        setActive(targets[targets.length - 1]!.id);
+        return;
+      }
+
+      const line = window.innerHeight * 0.28;
+      let current = targets[0]!.id;
+      for (const target of targets) {
+        if (target.getBoundingClientRect().top <= line) current = target.id;
+      }
+      setActive(current);
+    };
+
+    const onScroll = () => {
+      if (queued) return;
+      queued = true;
+      requestAnimationFrame(update);
+    };
+
+    // 点击比位置更清楚意图，先按住，等真的滚动了再交还给滚动
+    links.forEach((link) => {
+      link.addEventListener('click', () => {
+        const id = link.getAttribute('href')?.split('#')[1];
+        if (!id) return;
+        setActive(id);
+        clickLocked = true;
+      });
+    });
+
+    ['wheel', 'touchmove', 'keydown'].forEach((event) => {
+      window.addEventListener(
+        event,
+        () => {
+          if (!clickLocked) return;
+          clickLocked = false;
+          onScroll();
+        },
+        { passive: true },
+      );
+    });
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    update();
+  }
+</script>
